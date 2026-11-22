@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { Text, Divider, RadioButton, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAppTheme } from '../../src/hooks/useAppTheme';
 import { useSettingsStore } from '../../src/store/settingsStore';
@@ -18,6 +20,13 @@ import { Spacing, Typography, Radius } from '../../src/theme/tokens';
 import { assetRepository } from '../../src/db/assets';
 import { SAMPLE_ASSETS } from '../../src/data/sampleData';
 import { APP_CONFIG } from '../../src/constants/config';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  scheduleTestNotification,
+  PermissionStatus,
+} from '../../src/services/notifications';
+import { BatteryHelpModal } from '../../src/components/reminders/BatteryHelpModal';
 
 type SnackState = { visible: boolean; message: string; isError?: boolean };
 
@@ -29,6 +38,48 @@ export default function SettingsScreen() {
   const [loadingData, setLoadingData] = useState(false);
   const [clearingData, setClearingData] = useState(false);
   const [snack, setSnack] = useState<SnackState>({ visible: false, message: '' });
+
+  // Notifications State (Stage 3)
+  const [permStatus, setPermStatus] = useState<PermissionStatus>('undetermined');
+  const [batteryHelpVisible, setBatteryHelpVisible] = useState(false);
+  const [schedulingTest, setSchedulingTest] = useState(false);
+
+  const refreshPermission = useCallback(async () => {
+    try {
+      const status = await getNotificationPermissionStatus();
+      setPermStatus(status);
+    } catch (e) {
+      console.warn('Error checking notification permission:', e);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPermission();
+    }, [refreshPermission])
+  );
+
+  const handleRequestPermission = async () => {
+    await requestNotificationPermission();
+    await refreshPermission();
+  };
+
+  const handleTestNotification = async (seconds: number) => {
+    setSchedulingTest(true);
+    try {
+      const id = await scheduleTestNotification(seconds);
+      if (id) {
+        showSnack(t('settings.testNotificationScheduled', { seconds }));
+      } else {
+        showSnack(t('errors.unknown'), true);
+      }
+    } catch (e) {
+      console.error('Test notification failed:', e);
+      showSnack(t('errors.unknown'), true);
+    } finally {
+      setSchedulingTest(false);
+    }
+  };
 
   const showSnack = (message: string, isError = false) => {
     setSnack({ visible: true, message, isError });
@@ -135,6 +186,86 @@ export default function SettingsScreen() {
           </SettingsRow>
         </Card>
 
+        {/* ── Notifications & Reminders (Stage 3) ── */}
+        <SettingsGroupLabel label={t('settings.sectionNotifications')} theme={theme} />
+
+        <Card style={styles.card} variant="outlined">
+          {/* Permission Status */}
+          <SettingsRow
+            icon="bell-ring-outline"
+            title={t('settings.notificationPermission')}
+            subtitle={
+              permStatus === 'granted'
+                ? t('settings.permissionGranted')
+                : permStatus === 'denied'
+                ? t('settings.permissionDenied')
+                : t('settings.permissionUndetermined')
+            }
+            theme={theme}
+          >
+            {permStatus !== 'granted' && (
+              <AppButton
+                label={t('reminders.permissionEnable')}
+                onPress={handleRequestPermission}
+                variant="primary"
+                icon="bell-check-outline"
+              />
+            )}
+          </SettingsRow>
+
+          <Divider style={styles.divider} />
+
+          {/* Quick Notification Test (60 sec & 10 sec) */}
+          <View style={styles.testSection}>
+            <View style={styles.rowHeader}>
+              <MaterialCommunityIcons
+                name="timer-outline"
+                size={22}
+                color={theme.custom.textSecondary}
+                style={styles.rowIcon}
+              />
+              <Text style={[styles.rowTitle, { color: theme.colors.onSurface }]}>
+                {t('settings.testNotification')}
+              </Text>
+            </View>
+            <View style={styles.testBtnRow}>
+              <AppButton
+                label={t('settings.testNotification')}
+                onPress={() => handleTestNotification(60)}
+                variant="outline"
+                disabled={schedulingTest}
+                icon="bell-outline"
+                style={{ flex: 1 }}
+              />
+              <AppButton
+                label={t('settings.testNotification10s')}
+                onPress={() => handleTestNotification(10)}
+                variant="outline"
+                disabled={schedulingTest}
+                icon="timer-sand"
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+
+          <Divider style={styles.divider} />
+
+          {/* Battery Optimisation Guide */}
+          <SettingsRow
+            icon="battery-charging-wireless"
+            title={t('settings.batteryGuide')}
+            subtitle={t('settings.batteryGuideDesc')}
+            theme={theme}
+          >
+            <AppButton
+              label={t('common.select')}
+              onPress={() => setBatteryHelpVisible(true)}
+              variant="outline"
+              icon="information-outline"
+            />
+          </SettingsRow>
+        </Card>
+
         {/* ── Appearance ── */}
         <SettingsGroupLabel label={t('settings.sectionAppearance')} theme={theme} />
 
@@ -204,6 +335,11 @@ export default function SettingsScreen() {
       >
         <Text style={{ color: '#fff' }}>{snack.message}</Text>
       </Snackbar>
+
+      <BatteryHelpModal
+        visible={batteryHelpVisible}
+        onClose={() => setBatteryHelpVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -316,5 +452,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: Spacing.xl,
     fontStyle: 'italic',
+  },
+  testSection: {
+    padding: Spacing.md,
+  },
+  testBtnRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
 });

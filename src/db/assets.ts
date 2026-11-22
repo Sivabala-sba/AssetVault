@@ -110,6 +110,7 @@ async function getRemindersForAsset(assetId: string): Promise<Reminder[]> {
     repeatFrequency:  r.repeatFrequency as Reminder['repeatFrequency'],
     status:           r.status as Reminder['status'],
     snoozedUntil:     r.snoozedUntil as string | undefined,
+    notificationTime: (r.notificationTime as string) || '09:00',
   }));
 }
 

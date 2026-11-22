@@ -13,8 +13,23 @@ import { assetRepository } from '../../src/db/assets';
 import { CATEGORY_MAP } from '../../src/constants/categories';
 import { formatIndianDate, formatINR, formatIndianPhone } from '../../src/logic/formatting';
 import { getWarrantyInfo, getWarrantyRelativeText } from '../../src/logic/warranty';
+import { calculateNextOccurrence } from '../../src/logic/reminders';
+import { reminderRepository } from '../../src/db/reminders';
+import { WarrantySuggestionCard } from '../../src/components/reminders/WarrantySuggestionCard';
+import { ReminderCard } from '../../src/components/reminders/ReminderCard';
+import { ReminderFormModal } from '../../src/components/reminders/ReminderFormModal';
+import { SnoozeModal } from '../../src/components/reminders/SnoozeModal';
+import { PermissionDialog } from '../../src/components/reminders/PermissionDialog';
+import { generateId } from '../../src/utils/id';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  cancelReminderNotifications,
+  rescheduleReminderNotifications,
+  scheduleReminderNotifications,
+} from '../../src/services/notifications';
 import { Radius, Spacing, Typography } from '../../src/theme/tokens';
-import type { Asset } from '../../src/types/models';
+import type { Asset, Reminder } from '../../src/types/models';
 
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +39,14 @@ export default function AssetDetailScreen() {
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Reminders & Modals state
+  const [skippedSuggestion, setSkippedSuggestion] = useState(false);
+  const [formModalVisible, setFormModalVisible] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [snoozeModalVisible, setSnoozeModalVisible] = useState(false);
+  const [snoozeTarget, setSnoozeTarget] = useState<Reminder | null>(null);
+  const [permissionDialogVisible, setPermissionDialogVisible] = useState(false);
 
   const fetchAsset = useCallback(async () => {
     if (!id) return;
@@ -88,6 +111,169 @@ export default function AssetDetailScreen() {
     }
   };
 
+  // ── Warranty Reminder Suggestion ──────────────────────────────────────────
+  const handleAcceptSuggestion = async () => {
+    if (!asset) return;
+    const info = getWarrantyInfo(asset);
+    if (!info.endDate) return;
+
+    const status = await getNotificationPermissionStatus();
+    if (status === 'undetermined') {
+      setPermissionDialogVisible(true);
+      return;
+    }
+    await executeAcceptSuggestion(info.endDate);
+  };
+
+  const executeAcceptSuggestion = async (endDate: string) => {
+    if (!asset) return;
+    try {
+      const newRem: Reminder = {
+        id: generateId(),
+        assetId: asset.id,
+        title: `${asset.name} - Warranty Expiry`,
+        type: 'warrantyExpiry',
+        dueDate: endDate,
+        alertOffsetsDays: [60, 30, 14, 3],
+        repeatFrequency: 'none',
+        status: 'upcoming',
+        notificationTime: '09:00',
+      };
+      await reminderRepository.insert(newRem);
+      await scheduleReminderNotifications(newRem, asset.name);
+      Alert.alert(t('reminders.title'), t('reminders.suggestionAccepted'));
+      await fetchAsset();
+    } catch (e) {
+      console.error('Failed to accept warranty suggestion:', e);
+    }
+  };
+
+  const handleEditSuggestion = () => {
+    if (!asset) return;
+    const info = getWarrantyInfo(asset);
+    if (!info.endDate) return;
+
+    const template: Reminder = {
+      id: generateId(),
+      assetId: asset.id,
+      title: `${asset.name} - Warranty Expiry`,
+      type: 'warrantyExpiry',
+      dueDate: info.endDate,
+      alertOffsetsDays: [60, 30, 14, 3],
+      repeatFrequency: 'none',
+      status: 'upcoming',
+      notificationTime: '09:00',
+    };
+    setEditingReminder(template);
+    setFormModalVisible(true);
+  };
+
+  const handleSkipSuggestion = () => {
+    setSkippedSuggestion(true);
+  };
+
+  // ── Reminder CRUD for this Asset ──────────────────────────────────────────
+  const handleAddCustomReminder = async () => {
+    const status = await getNotificationPermissionStatus();
+    if (status === 'undetermined') {
+      setPermissionDialogVisible(true);
+      return;
+    }
+    setEditingReminder(null);
+    setFormModalVisible(true);
+  };
+
+  const handleCompleteReminder = async (rem: Reminder) => {
+    try {
+      const updated: Reminder = { ...rem, status: 'completed' };
+      await reminderRepository.update(updated);
+      await cancelReminderNotifications(rem.id);
+
+      if (rem.repeatFrequency && rem.repeatFrequency !== 'none') {
+        const next = calculateNextOccurrence(rem);
+        if (next && asset) {
+          const nextRem: Reminder = {
+            ...rem,
+            id: generateId(),
+            dueDate: next.dueDate,
+            status: 'upcoming',
+            snoozedUntil: undefined,
+          };
+          await reminderRepository.insert(nextRem);
+          await scheduleReminderNotifications(nextRem, asset.name);
+          Alert.alert(
+            t('reminders.completed'),
+            t('reminders.recurringCreatedNotice', { date: next.dueDate })
+          );
+        }
+      }
+      await fetchAsset();
+    } catch (e) {
+      console.error('Failed to complete reminder:', e);
+    }
+  };
+
+  const handleOpenSnooze = (rem: Reminder) => {
+    setSnoozeTarget(rem);
+    setSnoozeModalVisible(true);
+  };
+
+  const handleConfirmSnooze = async (rem: Reminder, snoozeDate: string) => {
+    try {
+      const updated: Reminder = { ...rem, status: 'snoozed', snoozedUntil: snoozeDate };
+      await reminderRepository.update(updated);
+      await cancelReminderNotifications(rem.id);
+      await fetchAsset();
+    } catch (e) {
+      console.error('Failed to snooze reminder:', e);
+    }
+  };
+
+  const handleRescheduleReminder = (rem: Reminder) => {
+    setEditingReminder(rem);
+    setFormModalVisible(true);
+  };
+
+  const handleEditReminder = (rem: Reminder) => {
+    setEditingReminder(rem);
+    setFormModalVisible(true);
+  };
+
+  const handleDeleteReminder = (rem: Reminder) => {
+    Alert.alert(
+      t('reminders.deleteConfirmTitle'),
+      t('reminders.deleteConfirmMessage', { title: rem.title }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await reminderRepository.delete(rem.id);
+              await cancelReminderNotifications(rem.id);
+              await fetchAsset();
+            } catch (e) {
+              console.error('Failed to delete reminder:', e);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSaveReminder = async (saved: Reminder) => {
+    if (!asset) return;
+    const exists = (asset.reminders || []).some((r) => r.id === saved.id);
+    if (exists) {
+      await reminderRepository.update(saved);
+    } else {
+      await reminderRepository.insert(saved);
+    }
+    await rescheduleReminderNotifications(saved, asset.name);
+    await fetchAsset();
+  };
+
   if (loading) {
     return (
       <SafeAreaView
@@ -122,6 +308,16 @@ export default function AssetDetailScreen() {
   // Warranty calculations (Stage 2)
   const warrantyInfo = getWarrantyInfo(asset);
   const relativeWarrantyText = getWarrantyRelativeText(warrantyInfo);
+
+  // Warranty Reminder suggestion (Stage 3)
+  const hasWarrantyExpiryReminder = (asset.reminders || []).some(
+    (r) => r.type === 'warrantyExpiry'
+  );
+  const showWarrantySuggestion =
+    !skippedSuggestion &&
+    !hasWarrantyExpiryReminder &&
+    Boolean(warrantyInfo.endDate) &&
+    !warrantyInfo.needsConfirmation;
   const hasAnyWarrantyData = Boolean(
     asset.warrantyProvider ||
       asset.warrantyStartDate ||
@@ -430,6 +626,59 @@ export default function AssetDetailScreen() {
           </View>
         )}
 
+        {/* Warranty Expiry Reminder Suggestion Card (Stage 3) */}
+        {showWarrantySuggestion && (
+          <WarrantySuggestionCard
+            asset={asset}
+            expiryDate={warrantyInfo.endDate!}
+            onAccept={handleAcceptSuggestion}
+            onEdit={handleEditSuggestion}
+            onSkip={handleSkipSuggestion}
+          />
+        )}
+
+        {/* Section: Reminders & Alerts (Stage 3) */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
+            {t('reminders.title')}
+          </Text>
+          <TouchableOpacity
+            onPress={handleAddCustomReminder}
+            style={[styles.addReminderHeaderBtn, { backgroundColor: theme.custom.surfaceVariant }]}
+          >
+            <MaterialCommunityIcons name="plus" size={16} color={theme.colors.primary} />
+            <Text style={[styles.addReminderHeaderText, { color: theme.colors.primary }]}>
+              {t('reminders.addReminder')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {(asset.reminders || []).length === 0 ? (
+          <Card variant="outlined" style={styles.placeholderCard}>
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={24}
+              color={theme.custom.textSecondary}
+              style={styles.placeholderIcon}
+            />
+            <Text style={[styles.placeholderText, { color: theme.custom.textSecondary }]}>
+              {t('reminders.emptySubtitle')}
+            </Text>
+          </Card>
+        ) : (
+          asset.reminders.map((rem) => (
+            <ReminderCard
+              key={rem.id}
+              reminder={rem}
+              onComplete={handleCompleteReminder}
+              onSnooze={handleOpenSnooze}
+              onReschedule={handleRescheduleReminder}
+              onEdit={handleEditReminder}
+              onDelete={handleDeleteReminder}
+            />
+          ))
+        )}
+
         {/* Section 3: Maintenance (Placeholder) */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
           {t('assetDetail.maintenanceSection')}
@@ -462,6 +711,44 @@ export default function AssetDetailScreen() {
           </Text>
         </Card>
       </ScrollView>
+
+      {/* Reminder Create/Edit Modal */}
+      <ReminderFormModal
+        visible={formModalVisible}
+        initialReminder={editingReminder}
+        defaultAssetId={asset.id}
+        onSave={handleSaveReminder}
+        onClose={() => {
+          setFormModalVisible(false);
+          setEditingReminder(null);
+        }}
+      />
+
+      {/* Snooze Modal */}
+      <SnoozeModal
+        visible={snoozeModalVisible}
+        reminder={snoozeTarget}
+        onSnooze={handleConfirmSnooze}
+        onClose={() => {
+          setSnoozeModalVisible(false);
+          setSnoozeTarget(null);
+        }}
+      />
+
+      {/* Permission Explanation Dialog */}
+      <PermissionDialog
+        visible={permissionDialogVisible}
+        onEnable={async () => {
+          setPermissionDialogVisible(false);
+          await requestNotificationPermission();
+          if (warrantyInfo.endDate) {
+            await executeAcceptSuggestion(warrantyInfo.endDate);
+          }
+        }}
+        onNotNow={() => {
+          setPermissionDialogVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -706,5 +993,23 @@ const styles = StyleSheet.create({
   },
   notFound: {
     ...Typography.bodyLarge,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  addReminderHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    gap: 4,
+  },
+  addReminderHeaderText: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
   },
 });

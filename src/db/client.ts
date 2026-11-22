@@ -164,6 +164,35 @@ class InMemoryDatabase implements DatabaseClient {
       return { changes: 1 };
     }
 
+    // UPDATE reminders
+    if (cleanSql.startsWith('UPDATE REMINDERS SET')) {
+      const id = params[params.length - 1] as string;
+      const existing = this.reminders.get(id) || {};
+      const setMatch = sql.match(/SET\s+([\s\S]+?)\s+WHERE id\s*=\s*\?/i);
+      if (setMatch) {
+        const assignPairs = setMatch[1].split(',').map((p) => p.trim());
+        assignPairs.forEach((pair, idx) => {
+          const colName = pair.split('=')[0].trim();
+          existing[colName] = params[idx];
+        });
+        this.reminders.set(id, { ...existing, id });
+      }
+      return { changes: 1 };
+    }
+
+    // DELETE FROM reminders WHERE id = ?
+    if (cleanSql.startsWith('DELETE FROM REMINDERS WHERE ID')) {
+      const id = params[0] as string;
+      this.reminders.delete(id);
+      return { changes: 1 };
+    }
+
+    // DELETE FROM reminders (all)
+    if (cleanSql === 'DELETE FROM REMINDERS') {
+      this.reminders.clear();
+      return { changes: 1 };
+    }
+
     // INSERT INTO schema_versions
     if (cleanSql.startsWith('INSERT INTO SCHEMA_VERSIONS')) {
       const ver = params[0] as number;
@@ -218,12 +247,18 @@ class InMemoryDatabase implements DatabaseClient {
       return rows as unknown as T[];
     }
 
-    // SELECT * FROM reminders WHERE assetId = ?
+    // SELECT * FROM reminders
     if (cleanSql.startsWith('SELECT * FROM REMINDERS')) {
-      const assetId = params[0] as string;
-      const rows = Array.from(this.reminders.values()).filter(
-        (r) => r.assetId === assetId
-      );
+      let rows = Array.from(this.reminders.values());
+      if (cleanSql.includes('WHERE ASSETID')) {
+        const assetId = params[0] as string;
+        rows = rows.filter((r) => r.assetId === assetId);
+      }
+      rows.sort((a, b) => {
+        const d1 = new Date((a.dueDate as string) || 0).getTime();
+        const d2 = new Date((b.dueDate as string) || 0).getTime();
+        return d1 - d2;
+      });
       return rows as unknown as T[];
     }
 
@@ -241,15 +276,27 @@ class InMemoryDatabase implements DatabaseClient {
       return { count: this.assets.size } as unknown as T;
     }
 
+    // SELECT COUNT(*) as count FROM reminders
+    if (cleanSql.includes('COUNT(*)') && cleanSql.includes('FROM REMINDERS')) {
+      return { count: this.reminders.size } as unknown as T;
+    }
+
     // SELECT MAX(version) as version FROM schema_versions
     if (cleanSql.includes('MAX(VERSION)') || cleanSql.includes('SCHEMA_VERSIONS')) {
       return { version: 1 } as unknown as T;
     }
 
     // SELECT * FROM assets WHERE id = ?
-    if (cleanSql.startsWith('SELECT * FROM ASSETS WHERE ID = ?')) {
+    if (cleanSql.startsWith('SELECT * FROM ASSETS WHERE ID')) {
       const id = params[0] as string;
       const row = this.assets.get(id);
+      return (row ? { ...row } : null) as unknown as T;
+    }
+
+    // SELECT * FROM reminders WHERE id = ?
+    if (cleanSql.startsWith('SELECT * FROM REMINDERS WHERE ID')) {
+      const id = params[0] as string;
+      const row = this.reminders.get(id);
       return (row ? { ...row } : null) as unknown as T;
     }
 

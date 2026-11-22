@@ -78,7 +78,8 @@ export async function initDatabase(): Promise<void> {
       alertOffsetsDays TEXT NOT NULL DEFAULT '[60,30,14,3]',
       repeatFrequency  TEXT,
       status           TEXT NOT NULL DEFAULT 'upcoming',
-      snoozedUntil     TEXT
+      snoozedUntil     TEXT,
+      notificationTime TEXT DEFAULT '09:00'
     );
   `);
 }

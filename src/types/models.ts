@@ -57,6 +57,7 @@ export interface Reminder {
   repeatFrequency?: 'monthly' | 'yearly' | 'none';
   status: ReminderStatus;
   snoozedUntil?: string; // ISO date string
+  notificationTime?: string; // e.g. '09:00' (Stage 3)
 }
 
 export type AssetCategory =
