@@ -263,30 +263,6 @@ let dbInstance: DatabaseClient | null = null;
 
 export function getDb(): DatabaseClient {
   if (dbInstance) return dbInstance;
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { requireOptionalNativeModule } = require('expo');
-    const nativeModule =
-      typeof requireOptionalNativeModule === 'function'
-        ? requireOptionalNativeModule('ExpoSQLite')
-        : null;
-
-    if (nativeModule) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const SQLite = require('expo-sqlite');
-      if (SQLite && typeof SQLite.openDatabaseSync === 'function') {
-        const realDb = SQLite.openDatabaseSync('assetvault.db');
-        if (realDb && typeof realDb.execAsync === 'function') {
-          dbInstance = realDb;
-          return dbInstance!;
-        }
-      }
-    }
-  } catch (err) {
-    // Ignore and use fallback
-  }
-
   dbInstance = new InMemoryDatabase();
   return dbInstance;
 }
