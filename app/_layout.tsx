@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
-import { Slot, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { LightTheme, DarkTheme } from '../src/theme';
 import { useSettingsStore } from '../src/store/settingsStore';
@@ -62,7 +62,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <PaperProvider theme={theme}>
-        <Slot />
+        <Stack screenOptions={{ headerShown: false }} />
       </PaperProvider>
     </SafeAreaProvider>
   );

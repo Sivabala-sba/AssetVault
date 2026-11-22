@@ -43,7 +43,7 @@ export default function AssetDetailScreen() {
 
   const handleEdit = () => {
     if (!asset) return;
-    router.push(`/asset/edit/${asset.id}` as any);
+    router.push({ pathname: '/asset/edit', params: { id: asset.id } } as any);
   };
 
   const handleDelete = () => {

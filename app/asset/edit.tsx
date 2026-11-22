@@ -5,11 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useAppTheme } from '../../../src/hooks/useAppTheme';
-import { AssetForm, AssetFormData } from '../../../src/components/asset/AssetForm';
-import { assetRepository } from '../../../src/db/assets';
-import { Spacing, Typography } from '../../../src/theme/tokens';
-import type { Asset } from '../../../src/types/models';
+import { useAppTheme } from '../../src/hooks/useAppTheme';
+import { AssetForm, AssetFormData } from '../../src/components/asset/AssetForm';
+import { assetRepository } from '../../src/db/assets';
+import { Spacing, Typography } from '../../src/theme/tokens';
+import type { Asset } from '../../src/types/models';
 
 export default function EditAssetScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
