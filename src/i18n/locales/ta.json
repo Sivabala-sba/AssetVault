@@ -1,0 +1,128 @@
+{
+  "common": {
+    "appName": "AssetVault",
+    "loading": "ஏற்றுகிறது…",
+    "error": "பிழை ஏற்பட்டது",
+    "retry": "மீண்டும் முயற்சி",
+    "cancel": "ரத்து செய்",
+    "save": "சேமி",
+    "delete": "நீக்கு",
+    "edit": "திருத்து",
+    "add": "சேர்",
+    "done": "முடிந்தது",
+    "confirm": "உறுதிப்படுத்து",
+    "close": "மூடு",
+    "back": "திரும்பு",
+    "search": "தேடு",
+    "filter": "வடிகட்டு",
+    "sort": "வரிசைப்படுத்து",
+    "share": "பகிர்",
+    "yes": "ஆம்",
+    "no": "இல்லை",
+    "ok": "சரி",
+    "needsConfirmation": "உறுதிப்படுத்தல் தேவை",
+    "suggestedNotCertified": "பரிந்துரை — உற்பத்தியாளரால் சான்றளிக்கப்படவில்லை"
+  },
+  "tabs": {
+    "home": "முகப்பு",
+    "assets": "சொத்துகள்",
+    "reminders": "நினைவூட்டல்கள்",
+    "settings": "அமைப்புகள்"
+  },
+  "home": {
+    "title": "AssetVault",
+    "greeting": "உங்கள் வீட்டின் நினைவகம்",
+    "subtitle": "ஒருமுறை படமெடு. எப்போதும் கண்டுபிடி. முன்பே நினைவூட்டல் பெறு.",
+    "emptyTitle": "இன்னும் சொத்துகள் இல்லை",
+    "emptySubtitle": "உங்கள் முதல் சொத்தை சேர்க்கவும்.",
+    "emptyAction": "முதல் சொத்தை சேர்",
+    "summaryAssets": "மொத்த சொத்துகள்",
+    "summaryWarrantiesActive": "செயலில் உள்ள உத்தரவாதங்கள்",
+    "summaryExpiringSoon": "விரைவில் காலாவதி",
+    "summaryExpired": "காலாவதி",
+    "recentAssets": "சமீபத்திய சொத்துகள்",
+    "warrantyAlerts": "உத்தரவாத எச்சரிக்கைகள்",
+    "seeAll": "அனைத்தும் பார்"
+  },
+  "assets": {
+    "title": "என் சொத்துகள்",
+    "emptyTitle": "இன்னும் சொத்துகள் சேர்க்கப்படவில்லை",
+    "emptySubtitle": "சொத்தை சேர்க்க + பொத்தானை தட்டவும்.",
+    "addAsset": "சொத்தை சேர்",
+    "searchPlaceholder": "சொத்துகளை தேடு…",
+    "allCategories": "அனைத்து வகைகள்"
+  },
+  "reminders": {
+    "title": "நினைவூட்டல்கள்",
+    "emptyTitle": "நினைவூட்டல்கள் இல்லை",
+    "emptySubtitle": "சொத்து உத்தரவாதங்கள் மற்றும் பராமரிப்பு அட்டவணைகளிலிருந்து நினைவூட்டல்கள் தானாக உருவாக்கப்படும்.",
+    "upcoming": "வரவிருக்கும்",
+    "completed": "முடிந்தது",
+    "snoozed": "நிறுத்தப்பட்டது",
+    "overdue": "தாமதமான"
+  },
+  "settings": {
+    "title": "அமைப்புகள்",
+    "sectionData": "தரவு & சேமிப்பு",
+    "loadSampleData": "மாதிரி தரவை ஏற்று",
+    "loadSampleDataDesc": "சோதனை மற்றும் டெமோவிற்கு 8 மாதிரி சொத்துகளை ஏற்று.",
+    "clearAllData": "அனைத்து தரவையும் அழி",
+    "clearAllDataDesc": "அனைத்து சொத்துகள், ஆவணங்கள் மற்றும் நினைவூட்டல்களை நிரந்தரமாக நீக்கு.",
+    "clearConfirmTitle": "அனைத்து தரவையும் அழிக்கவா?",
+    "clearConfirmMessage": "இது உங்கள் அனைத்து சொத்துகள், ஆவணங்கள் மற்றும் நினைவூட்டல்களை நிரந்தரமாக நீக்கும். இதை திரும்பப் பெற முடியாது.",
+    "clearConfirmAction": "ஆம், அனைத்தையும் அழி",
+    "sampleDataLoaded": "மாதிரி தரவு வெற்றிகரமாக ஏற்றப்பட்டது.",
+    "sampleDataAlreadyLoaded": "மாதிரி தரவு ஏற்கனவே ஏற்றப்பட்டுள்ளது. மீண்டும் ஏற்ற முதலில் தரவை அழிக்கவும்.",
+    "dataCleared": "அனைத்து தரவும் அழிக்கப்பட்டது.",
+    "sectionAppearance": "தோற்றம்",
+    "theme": "தீம்",
+    "themeSystem": "கணினி இயல்புநிலை",
+    "themeLight": "வெளிர்",
+    "themeDark": "இருள்",
+    "sectionAbout": "பற்றி",
+    "appVersion": "பயன்பாட்டு பதிப்பு",
+    "about": "AssetVault பற்றி",
+    "aboutDesc": "AssetVault — உங்கள் வீட்டின் நினைவகம்.",
+    "comingSoon": "அடுத்த கட்டத்தில் வரும்"
+  },
+  "categories": {
+    "homeAppliance": "வீட்டு உபகரணங்கள்",
+    "electronics": "மின்னணு சாதனங்கள்",
+    "vehicle": "வாகனங்கள்",
+    "furniture": "தளபாடங்கள்",
+    "homeEquipment": "வீட்டு உபகரணங்கள்",
+    "tools": "கருவிகள்",
+    "importantDocument": "முக்கிய ஆவணங்கள்",
+    "custom": "தனிப்பயன்"
+  },
+  "warrantyStatus": {
+    "active": "செயலில்",
+    "expiringSoon": "விரைவில் காலாவதி",
+    "expired": "காலாவதி",
+    "unknown": "உத்தரவாதம் இல்லை"
+  },
+  "assetDetail": {
+    "title": "சொத்து விவரங்கள்",
+    "purchaseInfo": "வாங்கிய தகவல்",
+    "warrantyInfo": "உத்தரவாத தகவல்",
+    "documents": "ஆவணங்கள்",
+    "maintenanceTasks": "பராமரிப்பு பணிகள்",
+    "serviceHistory": "சேவை வரலாறு",
+    "reminders": "நினைவூட்டல்கள்",
+    "noDocuments": "ஆவணங்கள் இல்லை",
+    "noMaintenanceTasks": "பராமரிப்பு பணிகள் இல்லை",
+    "noServiceHistory": "சேவை வரலாறு இல்லை",
+    "noReminders": "நினைவூட்டல்கள் இல்லை"
+  },
+  "emptyState": {
+    "genericTitle": "இன்னும் எதுவும் இல்லை",
+    "genericSubtitle": "நீங்கள் தொடங்கியதும் உள்ளடக்கம் இங்கே தோன்றும்."
+  },
+  "errors": {
+    "loadFailed": "தரவை ஏற்றுவதில் தோல்வி. மீண்டும் முயற்சிக்கவும்.",
+    "saveFailed": "சேமிப்பதில் தோல்வி. மீண்டும் முயற்சிக்கவும்.",
+    "deleteFailed": "நீக்குவதில் தோல்வி. மீண்டும் முயற்சிக்கவும்.",
+    "dbInit": "தரவுத்தள தொடக்கம் தோல்வியடைந்தது.",
+    "unknown": "எதிர்பாராத பிழை ஏற்பட்டது."
+  }
+}

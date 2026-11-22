@@ -1,0 +1,24 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env
+.env.local
+ios/
+android/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+Thumbs.db
+
+# Expo auto-generated (safe to commit)
+# expo-env.d.ts is intentionally NOT ignored — it carries TS type declarations
