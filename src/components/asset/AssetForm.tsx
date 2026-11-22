@@ -25,6 +25,8 @@ import {
   COMMON_LOCATIONS,
   SubTypeMeta,
 } from '../../constants/categories';
+import { calculateWarrantyEndDate } from '../../logic/warranty';
+import { formatIndianDate } from '../../logic/formatting';
 import type { Asset, AssetCategory } from '../../types/models';
 
 export interface AssetFormData {
@@ -40,6 +42,15 @@ export interface AssetFormData {
   seller?: string;
   invoiceNumber?: string;
   location?: string;
+  // Warranty fields (Stage 2)
+  warrantyProvider?: string;
+  warrantyStartDate?: string;
+  warrantyDurationMonths?: number;
+  warrantyEndDate?: string;
+  coverageDetails?: string;
+  exclusions?: string;
+  customerCareNumber?: string;
+  claimInstructions?: string;
   notes?: string;
   photos: string[];
 }
@@ -62,7 +73,7 @@ export function AssetForm({
   const { t } = useTranslation();
   const theme = useAppTheme();
 
-  // Form states
+  // Basic form states
   const [name, setName] = useState(initialValues?.name || '');
   const [category, setCategory] = useState<AssetCategory | undefined>(initialValues?.category);
   const [subType, setSubType] = useState<string | undefined>(
@@ -82,10 +93,45 @@ export function AssetForm({
   const [notes, setNotes] = useState(initialValues?.notes || '');
   const [photos] = useState<string[]>(initialValues?.photos || []);
 
+  // Warranty form states (Stage 2)
+  const [warrantyProvider, setWarrantyProvider] = useState(initialValues?.warrantyProvider || '');
+  const [warrantyStartDate, setWarrantyStartDate] = useState<string | undefined>(
+    initialValues?.warrantyStartDate || initialValues?.purchaseDate
+  );
+  const [warrantyDurationStr, setWarrantyDurationStr] = useState<string>(
+    initialValues?.warrantyDurationMonths ? String(initialValues.warrantyDurationMonths) : ''
+  );
+  const [warrantyEndDate, setWarrantyEndDate] = useState<string | undefined>(
+    initialValues?.warrantyEndDate ||
+      (initialValues?.warrantyStartDate && initialValues?.warrantyDurationMonths
+        ? calculateWarrantyEndDate(initialValues.warrantyStartDate, initialValues.warrantyDurationMonths) ?? undefined
+        : undefined)
+  );
+  const [coverageDetails, setCoverageDetails] = useState(initialValues?.coverageDetails || '');
+  const [exclusions, setExclusions] = useState(initialValues?.exclusions || '');
+  const [customerCareNumber, setCustomerCareNumber] = useState(
+    initialValues?.customerCareNumber || ''
+  );
+  const [claimInstructions, setClaimInstructions] = useState(
+    initialValues?.claimInstructions || ''
+  );
+
+  // Track if expiry was auto-calculated
+  const [isAutoCalculated, setIsAutoCalculated] = useState(
+    Boolean(
+      initialValues?.warrantyStartDate &&
+        initialValues?.warrantyDurationMonths &&
+        initialValues?.warrantyEndDate ===
+          calculateWarrantyEndDate(initialValues.warrantyStartDate, initialValues.warrantyDurationMonths)
+    )
+  );
+
   // UI / Modal states
   const [nameError, setNameError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [dateModalVisible, setDateModalVisible] = useState(false);
+  const [purchaseDateModalVisible, setPurchaseDateModalVisible] = useState(false);
+  const [warrantyStartModalVisible, setWarrantyStartModalVisible] = useState(false);
+  const [warrantyEndModalVisible, setWarrantyEndModalVisible] = useState(false);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -93,6 +139,63 @@ export function AssetForm({
   const currentSubTypeMeta: SubTypeMeta | undefined = subType ? SUB_TYPE_MAP[subType] : undefined;
   const suggestedLocations = currentSubTypeMeta?.suggestedLocations || COMMON_LOCATIONS.slice(0, 4);
   const showImei = currentSubTypeMeta?.showImei || !!imeiNumber || category === 'electronics';
+
+  // Handle purchase date change -> default warranty start date if not manually diverged
+  const handlePurchaseDateChange = (newDate?: string) => {
+    setPurchaseDate(newDate);
+    // If warranty start date is empty or was identical to previous purchase date, default it
+    if (!warrantyStartDate || warrantyStartDate === purchaseDate) {
+      setWarrantyStartDate(newDate);
+      if (newDate && warrantyDurationStr) {
+        const months = parseInt(warrantyDurationStr, 10);
+        if (!isNaN(months) && months > 0) {
+          const calculated = calculateWarrantyEndDate(newDate, months);
+          if (calculated) {
+            setWarrantyEndDate(calculated);
+            setIsAutoCalculated(true);
+          }
+        }
+      }
+    }
+  };
+
+  // Handle warranty start date change
+  const handleWarrantyStartDateChange = (newDate?: string) => {
+    setWarrantyStartDate(newDate);
+    if (newDate && warrantyDurationStr) {
+      const months = parseInt(warrantyDurationStr, 10);
+      if (!isNaN(months) && months > 0) {
+        const calculated = calculateWarrantyEndDate(newDate, months);
+        if (calculated) {
+          setWarrantyEndDate(calculated);
+          setIsAutoCalculated(true);
+        }
+      }
+    }
+  };
+
+  // Handle duration change -> recalculate expiry date if start date exists
+  const handleDurationChange = (text: string) => {
+    const cleanText = text.replace(/[^0-9]/g, '');
+    setWarrantyDurationStr(cleanText);
+    const months = parseInt(cleanText, 10);
+
+    if (!isNaN(months) && months > 0) {
+      if (warrantyStartDate) {
+        const calculated = calculateWarrantyEndDate(warrantyStartDate, months);
+        if (calculated) {
+          setWarrantyEndDate(calculated);
+          setIsAutoCalculated(true);
+        }
+      }
+    } else if (!cleanText) {
+      // If duration cleared, clear auto-calculated end date
+      if (isAutoCalculated) {
+        setWarrantyEndDate(undefined);
+        setIsAutoCalculated(false);
+      }
+    }
+  };
 
   // Handle template selection
   const handleSelectTemplate = (selected: SubTypeMeta) => {
@@ -132,7 +235,12 @@ export function AssetForm({
     setLoading(true);
 
     try {
-      const priceNum = purchasePriceStr ? parseFloat(purchasePriceStr.replace(/[^0-9.]/g, '')) : undefined;
+      const priceNum = purchasePriceStr
+        ? parseFloat(purchasePriceStr.replace(/[^0-9.]/g, ''))
+        : undefined;
+      const durationNum = warrantyDurationStr
+        ? parseInt(warrantyDurationStr.replace(/[^0-9]/g, ''), 10)
+        : undefined;
 
       await onSubmit({
         name: name.trim(),
@@ -147,6 +255,15 @@ export function AssetForm({
         seller: seller.trim() || undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
         location: location.trim() || undefined,
+        // Warranty fields
+        warrantyProvider: warrantyProvider.trim() || undefined,
+        warrantyStartDate: warrantyStartDate || undefined,
+        warrantyDurationMonths: isNaN(durationNum as number) ? undefined : durationNum,
+        warrantyEndDate: warrantyEndDate || undefined,
+        coverageDetails: coverageDetails.trim() || undefined,
+        exclusions: exclusions.trim() || undefined,
+        customerCareNumber: customerCareNumber.trim() || undefined,
+        claimInstructions: claimInstructions.trim() || undefined,
         notes: notes.trim() || undefined,
         photos,
       });
@@ -160,6 +277,10 @@ export function AssetForm({
     ? t(`subTypes.${subType}`, { defaultValue: subType })
     : undefined;
 
+  // Check if start date is missing while duration is entered (Needs Confirmation condition)
+  const durationEntered = Boolean(warrantyDurationStr && parseInt(warrantyDurationStr, 10) > 0);
+  const needsStartDateConfirmation = durationEntered && !warrantyStartDate;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -170,7 +291,7 @@ export function AssetForm({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Section: Category & Template */}
+        {/* Section 1: Category & Template */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
           {t('assetForm.generalSection')}
         </Text>
@@ -202,7 +323,8 @@ export function AssetForm({
                   { color: subType ? theme.colors.onSurface : theme.custom.textDisabled },
                 ]}
               >
-                {selectedSubTypeLabel || (category ? t(`categories.${category}`) : t('assetForm.subTypePlaceholder'))}
+                {selectedSubTypeLabel ||
+                  (category ? t(`categories.${category}`) : t('assetForm.subTypePlaceholder'))}
               </Text>
             </View>
           </View>
@@ -277,7 +399,7 @@ export function AssetForm({
           />
         )}
 
-        {/* Section: Purchase & Identification */}
+        {/* Section 2: Purchase & Identification */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary, marginTop: Spacing.xl }]}>
           {t('assetForm.purchaseSection')}
         </Text>
@@ -286,7 +408,7 @@ export function AssetForm({
         <DatePickerField
           label={t('assetForm.purchaseDateLabel')}
           value={purchaseDate}
-          onPress={() => setDateModalVisible(true)}
+          onPress={() => setPurchaseDateModalVisible(true)}
           style={styles.field}
         />
 
@@ -319,7 +441,133 @@ export function AssetForm({
           style={styles.field}
         />
 
-        {/* Section: Location & Notes */}
+        {/* Section 3: Warranty Information (Stage 2) */}
+        <Text style={[styles.sectionTitle, { color: theme.colors.primary, marginTop: Spacing.xl }]}>
+          {t('assetForm.warrantySection')}
+        </Text>
+
+        {/* Warranty Provider */}
+        <AppTextField
+          label={t('assetForm.warrantyProviderLabel')}
+          value={warrantyProvider}
+          onChangeText={setWarrantyProvider}
+          placeholder={t('assetForm.warrantyProviderPlaceholder')}
+          style={styles.field}
+        />
+
+        {/* Warranty Start Date (defaults to purchase date) */}
+        <DatePickerField
+          label={t('assetForm.warrantyStartDateLabel')}
+          value={warrantyStartDate}
+          onPress={() => setWarrantyStartModalVisible(true)}
+          style={styles.field}
+        />
+        {warrantyStartDate && warrantyStartDate === purchaseDate && (
+          <Text style={[styles.hintText, { color: theme.custom.textSecondary }]}>
+            ℹ️ {t('assetForm.warrantyStartDefaultsPurchase')}
+          </Text>
+        )}
+
+        {/* Warning if duration is entered without start date */}
+        {needsStartDateConfirmation && (
+          <View
+            style={[
+              styles.warningBox,
+              { backgroundColor: theme.custom.statusWarningBg, borderColor: theme.custom.statusWarning },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={18}
+              color={theme.custom.statusWarning}
+              style={{ marginRight: Spacing.xs }}
+            />
+            <Text style={[styles.warningText, { color: theme.custom.statusWarning }]}>
+              {t('assetForm.needsConfirmationDesc')}
+            </Text>
+          </View>
+        )}
+
+        {/* Duration in Months */}
+        <AppTextField
+          label={t('assetForm.warrantyDurationLabel')}
+          value={warrantyDurationStr}
+          onChangeText={handleDurationChange}
+          placeholder={t('assetForm.warrantyDurationPlaceholder')}
+          keyboardType="numeric"
+          style={styles.field}
+        />
+
+        {/* Direct Expiry Date */}
+        <DatePickerField
+          label={t('assetForm.warrantyEndDateLabel')}
+          value={warrantyEndDate}
+          onPress={() => setWarrantyEndModalVisible(true)}
+          style={styles.field}
+        />
+
+        {/* Auto-calculation indicator */}
+        {warrantyEndDate && warrantyStartDate && durationEntered && (
+          <View style={styles.autoCalcBadge}>
+            <MaterialCommunityIcons
+              name="calculator-variant-outline"
+              size={16}
+              color={theme.colors.primary}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.autoCalcText, { color: theme.colors.primary }]}>
+              {t('assetForm.warrantyCalculatedHint', {
+                date: formatIndianDate(warrantyEndDate),
+                months: warrantyDurationStr,
+              })}
+            </Text>
+          </View>
+        )}
+
+        {/* Coverage Details */}
+        <AppTextField
+          label={t('assetForm.coverageDetailsLabel')}
+          value={coverageDetails}
+          onChangeText={setCoverageDetails}
+          placeholder={t('assetForm.coverageDetailsPlaceholder')}
+          multiline
+          numberOfLines={2}
+          style={styles.field}
+        />
+
+        {/* Exclusions */}
+        <AppTextField
+          label={t('assetForm.exclusionsLabel')}
+          value={exclusions}
+          onChangeText={setExclusions}
+          placeholder={t('assetForm.exclusionsPlaceholder')}
+          multiline
+          numberOfLines={2}
+          style={styles.field}
+        />
+
+        {/* Customer Care Number */}
+        <AppTextField
+          label={t('assetForm.customerCareLabel')}
+          value={customerCareNumber}
+          onChangeText={setCustomerCareNumber}
+          placeholder={t('assetForm.customerCarePlaceholder')}
+          keyboardType="phone-pad"
+          style={styles.field}
+        />
+
+        {/* Claim Instructions */}
+        <AppTextField
+          label={t('assetForm.claimInstructionsLabel')}
+          value={claimInstructions}
+          onChangeText={setClaimInstructions}
+          placeholder={t('assetForm.claimInstructionsPlaceholder')}
+          multiline
+          numberOfLines={2}
+          style={styles.field}
+        />
+
+        {/* Section 4: Location & Notes */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary, marginTop: Spacing.xl }]}>
           {t('assetForm.locationSection')}
         </Text>
@@ -395,19 +643,51 @@ export function AssetForm({
         </View>
       </ScrollView>
 
-      {/* Date Picker Modal */}
+      {/* Purchase Date Picker Modal */}
       <SimpleDatePickerModal
-        visible={dateModalVisible}
+        visible={purchaseDateModalVisible}
         value={purchaseDate}
         onConfirm={(iso) => {
-          setPurchaseDate(iso);
-          setDateModalVisible(false);
+          handlePurchaseDateChange(iso);
+          setPurchaseDateModalVisible(false);
         }}
         onClear={() => {
-          setPurchaseDate(undefined);
-          setDateModalVisible(false);
+          handlePurchaseDateChange(undefined);
+          setPurchaseDateModalVisible(false);
         }}
-        onDismiss={() => setDateModalVisible(false)}
+        onDismiss={() => setPurchaseDateModalVisible(false)}
+      />
+
+      {/* Warranty Start Date Picker Modal */}
+      <SimpleDatePickerModal
+        visible={warrantyStartModalVisible}
+        value={warrantyStartDate}
+        onConfirm={(iso) => {
+          handleWarrantyStartDateChange(iso);
+          setWarrantyStartModalVisible(false);
+        }}
+        onClear={() => {
+          handleWarrantyStartDateChange(undefined);
+          setWarrantyStartModalVisible(false);
+        }}
+        onDismiss={() => setWarrantyStartModalVisible(false)}
+      />
+
+      {/* Warranty End Date Picker Modal */}
+      <SimpleDatePickerModal
+        visible={warrantyEndModalVisible}
+        value={warrantyEndDate}
+        onConfirm={(iso) => {
+          setWarrantyEndDate(iso);
+          setIsAutoCalculated(false);
+          setWarrantyEndModalVisible(false);
+        }}
+        onClear={() => {
+          setWarrantyEndDate(undefined);
+          setIsAutoCalculated(false);
+          setWarrantyEndModalVisible(false);
+        }}
+        onDismiss={() => setWarrantyEndModalVisible(false)}
       />
 
       {/* Template & Category Selector Modal */}
@@ -540,6 +820,38 @@ const styles = StyleSheet.create({
     marginTop: -Spacing.xs,
     marginBottom: Spacing.sm,
     marginLeft: Spacing.xs,
+  },
+  hintText: {
+    ...Typography.bodySmall,
+    fontSize: 12,
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  warningText: {
+    ...Typography.bodySmall,
+    flex: 1,
+    fontWeight: '600',
+  },
+  autoCalcBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -Spacing.xs,
+    marginBottom: Spacing.md,
+    paddingLeft: Spacing.xs,
+  },
+  autoCalcText: {
+    ...Typography.labelSmall,
+    fontSize: 12,
+    fontWeight: '600',
   },
   suggestionsContainer: {
     marginTop: -Spacing.xs,

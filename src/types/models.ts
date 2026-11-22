@@ -86,7 +86,10 @@ export interface Asset {
   warrantyStartDate?: string; // ISO date string
   warrantyEndDate?: string;   // ISO date string
   warrantyDurationMonths?: number;
+  coverageDetails?: string;   // Scope of warranty coverage (Stage 2)
+  exclusions?: string;        // Items not covered (Stage 2)
   customerCareNumber?: string;
+  claimInstructions?: string; // How to raise a claim (Stage 2)
   notes?: string;
   photos: string[];          // file URIs
   documents: AssetDocument[];
@@ -99,12 +102,18 @@ export interface Asset {
 
 // ─── Warranty Status ──────────────────────────────────────────────────────────
 
-export type WarrantyStatus = 'active' | 'expiringSoon' | 'expired' | 'unknown';
+export type WarrantyStatus =
+  | 'active'
+  | 'expiringSoon'
+  | 'expired'
+  | 'unknown'
+  | 'needsConfirmation';
 
 export interface WarrantyInfo {
   status: WarrantyStatus;
   daysRemaining?: number;
   endDate?: string;
+  needsConfirmation?: boolean;
 }
 
 // ─── UI / Display helpers ─────────────────────────────────────────────────────

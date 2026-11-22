@@ -26,7 +26,10 @@ function rowToAsset(row: Record<string, unknown>): Omit<Asset, 'documents' | 'ma
     warrantyStartDate:      row.warrantyStartDate as string | undefined,
     warrantyEndDate:        row.warrantyEndDate as string | undefined,
     warrantyDurationMonths: row.warrantyDurationMonths as number | undefined,
+    coverageDetails:        row.coverageDetails as string | undefined,
+    exclusions:             row.exclusions as string | undefined,
     customerCareNumber:     row.customerCareNumber as string | undefined,
+    claimInstructions:      row.claimInstructions as string | undefined,
     notes:                  row.notes as string | undefined,
     photos:                 parseJson<string[]>(row.photos as string, []),
     createdAt:              row.createdAt as string,
@@ -151,8 +154,9 @@ export const assetRepository = {
         id, name, category, brand, modelNumber, serialNumber, imeiNumber,
         purchaseDate, purchasePrice, seller, invoiceNumber, location,
         warrantyProvider, warrantyStartDate, warrantyEndDate, warrantyDurationMonths,
-        customerCareNumber, notes, photos, createdAt, updatedAt
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        coverageDetails, exclusions, customerCareNumber, claimInstructions,
+        notes, photos, createdAt, updatedAt
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         asset.id, asset.name, asset.category,
         asset.brand ?? null, asset.modelNumber ?? null, asset.serialNumber ?? null,
@@ -161,7 +165,9 @@ export const assetRepository = {
         asset.invoiceNumber ?? null, asset.location ?? null,
         asset.warrantyProvider ?? null, asset.warrantyStartDate ?? null,
         asset.warrantyEndDate ?? null, asset.warrantyDurationMonths ?? null,
-        asset.customerCareNumber ?? null, asset.notes ?? null,
+        asset.coverageDetails ?? null, asset.exclusions ?? null,
+        asset.customerCareNumber ?? null, asset.claimInstructions ?? null,
+        asset.notes ?? null,
         JSON.stringify(asset.photos), asset.createdAt, asset.updatedAt,
       ]
     );
@@ -201,7 +207,8 @@ export const assetRepository = {
         name=?, category=?, brand=?, modelNumber=?, serialNumber=?, imeiNumber=?,
         purchaseDate=?, purchasePrice=?, seller=?, invoiceNumber=?, location=?,
         warrantyProvider=?, warrantyStartDate=?, warrantyEndDate=?, warrantyDurationMonths=?,
-        customerCareNumber=?, notes=?, photos=?, updatedAt=?
+        coverageDetails=?, exclusions=?, customerCareNumber=?, claimInstructions=?,
+        notes=?, photos=?, updatedAt=?
        WHERE id=?`,
       [
         asset.name, asset.category,
@@ -211,7 +218,9 @@ export const assetRepository = {
         asset.invoiceNumber ?? null, asset.location ?? null,
         asset.warrantyProvider ?? null, asset.warrantyStartDate ?? null,
         asset.warrantyEndDate ?? null, asset.warrantyDurationMonths ?? null,
-        asset.customerCareNumber ?? null, asset.notes ?? null,
+        asset.coverageDetails ?? null, asset.exclusions ?? null,
+        asset.customerCareNumber ?? null, asset.claimInstructions ?? null,
+        asset.notes ?? null,
         JSON.stringify(asset.photos), now,
         asset.id,
       ]

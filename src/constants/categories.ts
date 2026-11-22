@@ -26,8 +26,8 @@ export const CATEGORY_MAP = Object.fromEntries(
 /** Default reminder offsets in days before expiry */
 export const DEFAULT_ALERT_OFFSETS_DAYS = [60, 30, 14, 3];
 
-/** Days before warrantyEndDate to consider "expiring soon" */
-export const WARRANTY_EXPIRING_SOON_DAYS = 90;
+/** Days before warrantyEndDate to consider "expiring soon" (Stage 2: within 60 days) */
+export const WARRANTY_EXPIRING_SOON_DAYS = 60;
 
 // ─── Sub-types (product templates) ────────────────────────────────────────────
 

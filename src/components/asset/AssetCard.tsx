@@ -5,8 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { Card } from '../common/Card';
+import { StatusChip } from '../common/StatusChip';
 import { Radius, Spacing, Typography } from '../../theme/tokens';
 import { CATEGORY_MAP } from '../../constants/categories';
+import { getWarrantyInfo, getWarrantyRelativeText } from '../../logic/warranty';
 import type { Asset } from '../../types/models';
 
 interface AssetCardProps {
@@ -24,6 +26,9 @@ export function AssetCard({ asset, onPress }: AssetCardProps) {
 
   const hasPhoto = asset.photos && asset.photos.length > 0;
   const brandAndModel = [asset.brand, asset.modelNumber].filter(Boolean).join(' • ');
+
+  const warrantyInfo = getWarrantyInfo(asset);
+  const relativeText = getWarrantyRelativeText(warrantyInfo);
 
   return (
     <Card
@@ -56,12 +61,16 @@ export function AssetCard({ asset, onPress }: AssetCardProps) {
 
         {/* Info Column */}
         <View style={styles.infoCol}>
-          <Text
-            style={[styles.name, { color: theme.colors.onSurface }]}
-            numberOfLines={1}
-          >
-            {asset.name}
-          </Text>
+          <View style={styles.headerRow}>
+            <Text
+              style={[styles.name, { color: theme.colors.onSurface }]}
+              numberOfLines={1}
+            >
+              {asset.name}
+            </Text>
+            {/* Status Chip on card */}
+            <StatusChip status={warrantyInfo.status} compact />
+          </View>
 
           {brandAndModel ? (
             <Text
@@ -71,6 +80,38 @@ export function AssetCard({ asset, onPress }: AssetCardProps) {
               {brandAndModel}
             </Text>
           ) : null}
+
+          {/* Warranty sub-line if tracked */}
+          {warrantyInfo.status !== 'unknown' && (
+            <View style={styles.warrantyLine}>
+              <MaterialCommunityIcons
+                name="shield-outline"
+                size={13}
+                color={
+                  warrantyInfo.status === 'expired'
+                    ? theme.custom.statusDanger
+                    : warrantyInfo.status === 'expiringSoon'
+                    ? theme.custom.statusWarning
+                    : theme.custom.statusActive
+                }
+              />
+              <Text
+                style={[
+                  styles.warrantyText,
+                  {
+                    color:
+                      warrantyInfo.status === 'expired'
+                        ? theme.custom.statusDanger
+                        : warrantyInfo.status === 'expiringSoon'
+                        ? theme.custom.statusWarning
+                        : theme.custom.textSecondary,
+                  },
+                ]}
+              >
+                {relativeText}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.metaRow}>
             {/* Category tag */}
@@ -146,14 +187,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+    gap: Spacing.xs,
+  },
   name: {
     ...Typography.titleSmall,
     fontWeight: '700',
-    marginBottom: 2,
+    flex: 1,
   },
   brandModel: {
     ...Typography.bodySmall,
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  warrantyLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  warrantyText: {
+    ...Typography.labelSmall,
+    fontSize: 11,
+    fontWeight: '600',
   },
   metaRow: {
     flexDirection: 'row',

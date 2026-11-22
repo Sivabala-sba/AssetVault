@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -8,9 +8,11 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../src/hooks/useAppTheme';
 import { Card } from '../../src/components/common/Card';
 import { AppButton } from '../../src/components/common/AppButton';
+import { StatusChip } from '../../src/components/common/StatusChip';
 import { assetRepository } from '../../src/db/assets';
-import { CATEGORY_MAP, SUB_TYPES } from '../../src/constants/categories';
-import { formatIndianDate, formatINR } from '../../src/logic/formatting';
+import { CATEGORY_MAP } from '../../src/constants/categories';
+import { formatIndianDate, formatINR, formatIndianPhone } from '../../src/logic/formatting';
+import { getWarrantyInfo, getWarrantyRelativeText } from '../../src/logic/warranty';
 import { Radius, Spacing, Typography } from '../../src/theme/tokens';
 import type { Asset } from '../../src/types/models';
 
@@ -71,6 +73,21 @@ export default function AssetDetailScreen() {
     );
   };
 
+  const handleCallCustomerCare = async (phone: string) => {
+    const cleanNumber = phone.replace(/[^0-9+]/g, '');
+    const url = `tel:${cleanNumber}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(t('common.error'), t('assetDetail.callFailed'));
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('assetDetail.callFailed'));
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView
@@ -101,6 +118,20 @@ export default function AssetDetailScreen() {
   const categoryMeta = CATEGORY_MAP[asset.category];
   const categoryLabel = categoryMeta ? t(categoryMeta.labelKey) : asset.category;
   const iconName = (categoryMeta?.icon || 'package-variant') as any;
+
+  // Warranty calculations (Stage 2)
+  const warrantyInfo = getWarrantyInfo(asset);
+  const relativeWarrantyText = getWarrantyRelativeText(warrantyInfo);
+  const hasAnyWarrantyData = Boolean(
+    asset.warrantyProvider ||
+      asset.warrantyStartDate ||
+      asset.warrantyEndDate ||
+      asset.warrantyDurationMonths ||
+      asset.customerCareNumber ||
+      asset.coverageDetails ||
+      asset.exclusions ||
+      asset.claimInstructions
+  );
 
   return (
     <SafeAreaView
@@ -157,14 +188,19 @@ export default function AssetDetailScreen() {
               />
             </View>
             <View style={styles.heroTextCol}>
-              <Text style={[styles.heroName, { color: theme.colors.onSurface }]}>
-                {asset.name}
-              </Text>
+              <View style={styles.heroTopLine}>
+                <Text style={[styles.heroName, { color: theme.colors.onSurface }]}>
+                  {asset.name}
+                </Text>
+                <StatusChip status={warrantyInfo.status} compact />
+              </View>
+
               {(asset.brand || asset.modelNumber) && (
                 <Text style={[styles.heroBrand, { color: theme.custom.textSecondary }]}>
                   {[asset.brand, asset.modelNumber].filter(Boolean).join(' • ')}
                 </Text>
               )}
+
               <View style={styles.heroBadgeRow}>
                 <View
                   style={[
@@ -232,21 +268,167 @@ export default function AssetDetailScreen() {
           )}
         </Card>
 
-        {/* Section 2: Warranty (Placeholder) */}
+        {/* Section 2: Warranty (Stage 2) */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
           {t('assetDetail.warrantySection')}
         </Text>
-        <Card variant="outlined" style={styles.placeholderCard}>
-          <MaterialCommunityIcons
-            name="shield-outline"
-            size={28}
-            color={theme.custom.textSecondary}
-            style={styles.placeholderIcon}
-          />
-          <Text style={[styles.placeholderText, { color: theme.custom.textSecondary }]}>
-            {t('assetDetail.warrantyComingSoon')}
-          </Text>
-        </Card>
+
+        {!hasAnyWarrantyData ? (
+          <Card variant="outlined" style={styles.noWarrantyCard}>
+            <MaterialCommunityIcons
+              name="shield-off-outline"
+              size={28}
+              color={theme.custom.textSecondary}
+              style={{ marginRight: Spacing.md }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.noWarrantyTitle, { color: theme.colors.onSurface }]}>
+                {t('assetDetail.noWarrantyDetails')}
+              </Text>
+            </View>
+          </Card>
+        ) : (
+          <View>
+            {/* Warranty Status Banner */}
+            <Card elevated style={styles.warrantyBannerCard}>
+              <View style={styles.warrantyBannerHeader}>
+                <View style={styles.warrantyStatusRow}>
+                  <StatusChip status={warrantyInfo.status} />
+                  <Text style={[styles.warrantyRelativeText, { color: theme.colors.onSurface }]}>
+                    {relativeWarrantyText}
+                  </Text>
+                </View>
+
+                {warrantyInfo.endDate && (
+                  <View style={styles.expiryBox}>
+                    <Text style={[styles.expiryLabel, { color: theme.custom.textSecondary }]}>
+                      {t('assetDetail.warrantyEndDate')}
+                    </Text>
+                    <Text style={[styles.expiryValue, { color: theme.colors.primary }]}>
+                      {formatIndianDate(warrantyInfo.endDate)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Needs confirmation alert */}
+              {warrantyInfo.needsConfirmation && (
+                <View
+                  style={[
+                    styles.needsConfirmBanner,
+                    {
+                      backgroundColor: theme.custom.statusWarningBg,
+                      borderColor: theme.custom.statusWarning,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="alert-circle-outline"
+                    size={20}
+                    color={theme.custom.statusWarning}
+                    style={{ marginRight: Spacing.xs }}
+                  />
+                  <Text style={[styles.needsConfirmText, { color: theme.custom.statusWarning }]}>
+                    {t('assetDetail.needsConfirmationPrompt')}
+                  </Text>
+                </View>
+              )}
+            </Card>
+
+            {/* Detailed Warranty Fields */}
+            <Card variant="outlined" style={styles.sectionCard}>
+              <DetailRow
+                label={t('assetDetail.warrantyProvider')}
+                value={asset.warrantyProvider}
+              />
+              <DetailRow
+                label={t('assetDetail.warrantyStartDate')}
+                value={
+                  asset.warrantyStartDate
+                    ? formatIndianDate(asset.warrantyStartDate)
+                    : undefined
+                }
+              />
+              <DetailRow
+                label={t('assetDetail.warrantyDuration')}
+                value={
+                  asset.warrantyDurationMonths
+                    ? t('assetDetail.warrantyMonths', { count: asset.warrantyDurationMonths })
+                    : undefined
+                }
+              />
+              <DetailRow
+                label={t('assetDetail.warrantyEndDate')}
+                value={
+                  warrantyInfo.endDate
+                    ? formatIndianDate(warrantyInfo.endDate)
+                    : undefined
+                }
+              />
+
+              {/* Customer Care with Tap-to-Call */}
+              {asset.customerCareNumber && (
+                <View style={[styles.rowContainer, { borderBottomColor: theme.custom.border }]}>
+                  <Text style={[styles.detailLabel, { color: theme.custom.textSecondary }]}>
+                    {t('assetDetail.customerCare')}
+                  </Text>
+                  <View style={styles.phoneActionCol}>
+                    <Text style={[styles.phoneText, { color: theme.colors.onSurface }]}>
+                      {formatIndianPhone(asset.customerCareNumber)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleCallCustomerCare(asset.customerCareNumber!)}
+                      style={[
+                        styles.callBtn,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons name="phone" size={16} color="#ffffff" />
+                      <Text style={styles.callBtnText}>{t('assetDetail.call')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Coverage Details */}
+              {asset.coverageDetails && (
+                <View style={styles.notesContainer}>
+                  <Text style={[styles.detailLabel, { color: theme.custom.textSecondary }]}>
+                    {t('assetDetail.coverage')}
+                  </Text>
+                  <Text style={[styles.notesValue, { color: theme.colors.onSurface }]}>
+                    {asset.coverageDetails}
+                  </Text>
+                </View>
+              )}
+
+              {/* Exclusions */}
+              {asset.exclusions && (
+                <View style={styles.notesContainer}>
+                  <Text style={[styles.detailLabel, { color: theme.custom.textSecondary }]}>
+                    {t('assetDetail.exclusions')}
+                  </Text>
+                  <Text style={[styles.notesValue, { color: theme.colors.onSurface }]}>
+                    {asset.exclusions}
+                  </Text>
+                </View>
+              )}
+
+              {/* Claim Instructions */}
+              {asset.claimInstructions && (
+                <View style={styles.notesContainer}>
+                  <Text style={[styles.detailLabel, { color: theme.custom.textSecondary }]}>
+                    {t('assetDetail.claimInstructions')}
+                  </Text>
+                  <Text style={[styles.notesValue, { color: theme.colors.onSurface }]}>
+                    {asset.claimInstructions}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          </View>
+        )}
 
         {/* Section 3: Maintenance (Placeholder) */}
         <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
@@ -361,10 +543,17 @@ const styles = StyleSheet.create({
   heroTextCol: {
     flex: 1,
   },
+  heroTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+    gap: Spacing.xs,
+  },
   heroName: {
     ...Typography.titleLarge,
     fontWeight: '700',
-    marginBottom: 2,
+    flex: 1,
   },
   heroBrand: {
     ...Typography.bodyMedium,
@@ -403,6 +592,7 @@ const styles = StyleSheet.create({
   rowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
   },
@@ -416,6 +606,28 @@ const styles = StyleSheet.create({
     flex: 1.2,
     textAlign: 'right',
   },
+  phoneActionCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  phoneText: {
+    ...Typography.bodyMedium,
+    fontWeight: '600',
+  },
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  callBtnText: {
+    color: '#ffffff',
+    ...Typography.labelSmall,
+    fontWeight: '700',
+  },
   notesContainer: {
     paddingTop: Spacing.sm,
   },
@@ -423,6 +635,60 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     marginTop: 4,
     lineHeight: 20,
+  },
+  noWarrantyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  noWarrantyTitle: {
+    ...Typography.bodyMedium,
+    fontWeight: '500',
+  },
+  warrantyBannerCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+  },
+  warrantyBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  warrantyStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  warrantyRelativeText: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  expiryBox: {
+    alignItems: 'flex-end',
+  },
+  expiryLabel: {
+    ...Typography.labelSmall,
+    fontSize: 11,
+  },
+  expiryValue: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  needsConfirmBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  needsConfirmText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+    flex: 1,
   },
   placeholderCard: {
     flexDirection: 'row',
