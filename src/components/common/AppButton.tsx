@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
+import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Button as PaperButton } from 'react-native-paper';
 import { useAppTheme } from '../../hooks/useAppTheme';
 import { Radius } from '../../theme/tokens';
@@ -13,7 +13,7 @@ interface AppButtonProps {
   disabled?: boolean;
   loading?: boolean;
   icon?: string;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   fullWidth?: boolean;
 }
 

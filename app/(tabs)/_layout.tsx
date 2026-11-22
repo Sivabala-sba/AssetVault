@@ -49,7 +49,7 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.home'),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="home-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -58,7 +58,7 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.assets'),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="package-variant-closed" size={size} color={color} />
+            <MaterialCommunityIcons name="package-variant-closed" size={size} color={color as string} />
           ),
         }}
       />
@@ -67,7 +67,7 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.reminders'),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="bell-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -76,7 +76,7 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.settings'),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="cog-outline" size={size} color={color as string} />
           ),
         }}
       />

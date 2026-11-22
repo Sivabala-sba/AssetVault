@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   StyleSheet,
+  StyleProp,
   ViewStyle,
   TouchableOpacity,
   TouchableOpacityProps,
@@ -11,7 +12,7 @@ import { Radius, Spacing, Elevation } from '../../theme/tokens';
 
 interface CardProps extends TouchableOpacityProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   elevated?: boolean;
   variant?: 'default' | 'outlined';
