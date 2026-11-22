@@ -265,21 +265,26 @@ export function getDb(): DatabaseClient {
   if (dbInstance) return dbInstance;
 
   try {
-    // Dynamic require so module evaluation doesn't throw if native module is absent
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const SQLite = require('expo-sqlite');
-    if (SQLite && typeof SQLite.openDatabaseSync === 'function') {
-      const realDb = SQLite.openDatabaseSync('assetvault.db');
-      if (realDb && typeof realDb.execAsync === 'function') {
-        dbInstance = realDb;
-        return dbInstance!;
+    const { requireOptionalNativeModule } = require('expo');
+    const nativeModule =
+      typeof requireOptionalNativeModule === 'function'
+        ? requireOptionalNativeModule('ExpoSQLite')
+        : null;
+
+    if (nativeModule) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const SQLite = require('expo-sqlite');
+      if (SQLite && typeof SQLite.openDatabaseSync === 'function') {
+        const realDb = SQLite.openDatabaseSync('assetvault.db');
+        if (realDb && typeof realDb.execAsync === 'function') {
+          dbInstance = realDb;
+          return dbInstance!;
+        }
       }
     }
   } catch (err) {
-    console.warn(
-      '[AssetVault] Native ExpoSQLite module not available in this client environment. Using local in-memory store.',
-      err
-    );
+    // Ignore and use fallback
   }
 
   dbInstance = new InMemoryDatabase();
