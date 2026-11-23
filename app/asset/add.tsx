@@ -8,10 +8,12 @@ import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../src/hooks/useAppTheme';
 import { Card } from '../../src/components/common/Card';
 import { AssetForm, AssetFormData } from '../../src/components/asset/AssetForm';
+import { CameraScannerModal } from '../../src/components/document/CameraScannerModal';
+import { DocumentPickerModal } from '../../src/components/document/DocumentPickerModal';
 import { assetRepository } from '../../src/db/assets';
 import { generateId } from '../../src/utils/id';
 import { Radius, Spacing, Typography } from '../../src/theme/tokens';
-import type { Asset } from '../../src/types/models';
+import type { Asset, AssetDocument, DocumentType } from '../../src/types/models';
 
 type AddMode = 'options' | 'form';
 
@@ -21,6 +23,7 @@ interface OptionItem {
   titleKey: string;
   descKey: string;
   active: boolean;
+  defaultDocType?: DocumentType;
 }
 
 const OPTIONS: OptionItem[] = [
@@ -29,35 +32,40 @@ const OPTIONS: OptionItem[] = [
     icon: 'file-document-outline',
     titleKey: 'addAsset.scanBill',
     descKey: 'addAsset.scanBillDesc',
-    active: false,
+    active: true,
+    defaultDocType: 'invoice',
   },
   {
     id: 'scan_warranty',
     icon: 'shield-check-outline',
     titleKey: 'addAsset.scanWarranty',
     descKey: 'addAsset.scanWarrantyDesc',
-    active: false,
+    active: true,
+    defaultDocType: 'warrantyCard',
   },
   {
     id: 'scan_label',
     icon: 'barcode-scan',
     titleKey: 'addAsset.scanProductLabel',
     descKey: 'addAsset.scanProductLabelDesc',
-    active: false,
+    active: true,
+    defaultDocType: 'productLabel',
   },
   {
     id: 'scan_vehicle',
     icon: 'car-outline',
     titleKey: 'addAsset.scanVehicleDoc',
     descKey: 'addAsset.scanVehicleDocDesc',
-    active: false,
+    active: true,
+    defaultDocType: 'registrationCertificate',
   },
   {
     id: 'upload_doc',
     icon: 'file-upload-outline',
     titleKey: 'addAsset.uploadDoc',
     descKey: 'addAsset.uploadDocDesc',
-    active: false,
+    active: true,
+    defaultDocType: 'invoice',
   },
   {
     id: 'manual',
@@ -74,21 +82,40 @@ export default function AddAssetScreen() {
   const router = useRouter();
 
   const [mode, setMode] = useState<AddMode>('options');
+  const [attachedDocs, setAttachedDocs] = useState<AssetDocument[]>([]);
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
+  const [cameraType, setCameraType] = useState<DocumentType>('invoice');
+  const [pickerModalVisible, setPickerModalVisible] = useState(false);
 
   const handleOptionPress = (option: OptionItem) => {
-    if (option.active) {
+    if (option.id === 'manual') {
       setMode('form');
-    } else {
-      Alert.alert(
-        t('common.comingSoon'),
-        t('addAsset.comingSoonNotice'),
-        [{ text: t('common.ok') }]
-      );
+    } else if (option.id === 'upload_doc') {
+      setPickerModalVisible(true);
+    } else if (option.defaultDocType) {
+      setCameraType(option.defaultDocType);
+      setCameraModalVisible(true);
     }
+  };
+
+  const handleCameraSaved = (docs: AssetDocument[]) => {
+    setAttachedDocs((prev) => [...prev, ...docs]);
+    setCameraModalVisible(false);
+    setMode('form');
+  };
+
+  const handlePickerSelected = (docs: AssetDocument[]) => {
+    setAttachedDocs((prev) => [...prev, ...docs]);
+    setPickerModalVisible(false);
+    setMode('form');
   };
 
   const handleSaveAsset = async (formData: AssetFormData) => {
     const now = new Date().toISOString();
+    const finalDocs = formData.documents && formData.documents.length > 0
+      ? formData.documents
+      : attachedDocs;
+
     const newAsset: Asset = {
       id: generateId('ast'),
       name: formData.name,
@@ -112,7 +139,7 @@ export default function AddAssetScreen() {
       claimInstructions: formData.claimInstructions,
       notes: formData.notes,
       photos: formData.photos,
-      documents: [],
+      documents: finalDocs,
       maintenanceTasks: [],
       serviceHistory: [],
       reminders: [],
@@ -248,8 +275,27 @@ export default function AddAssetScreen() {
           ))}
         </ScrollView>
       ) : (
-        <AssetForm onSubmit={handleSaveAsset} />
+        <AssetForm
+          initialValues={{ documents: attachedDocs }}
+          onSubmit={handleSaveAsset}
+        />
       )}
+
+      {/* Camera Scanner Modal for Add Asset Scan options (Stage 5) */}
+      <CameraScannerModal
+        visible={cameraModalVisible}
+        defaultType={cameraType}
+        onSave={handleCameraSaved}
+        onClose={() => setCameraModalVisible(false)}
+      />
+
+      {/* Document Picker Modal for Upload Doc option (Stage 5) */}
+      <DocumentPickerModal
+        visible={pickerModalVisible}
+        defaultType="invoice"
+        onDocumentsSelected={handlePickerSelected}
+        onClose={() => setPickerModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

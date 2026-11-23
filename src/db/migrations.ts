@@ -41,9 +41,11 @@ export async function initDatabase(): Promise<void> {
     CREATE TABLE IF NOT EXISTS asset_documents (
       id            TEXT PRIMARY KEY NOT NULL,
       assetId       TEXT NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+      title         TEXT,
       type          TEXT NOT NULL,
       fileUri       TEXT NOT NULL,
       extractedText TEXT,
+      mimeType      TEXT,
       addedAt       TEXT NOT NULL
     );
 

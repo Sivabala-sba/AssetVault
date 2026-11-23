@@ -27,7 +27,10 @@ import {
 } from '../../constants/categories';
 import { calculateWarrantyEndDate } from '../../logic/warranty';
 import { formatIndianDate } from '../../logic/formatting';
-import type { Asset, AssetCategory } from '../../types/models';
+import { DocumentPickerModal } from '../document/DocumentPickerModal';
+import { DocumentViewerModal } from '../document/DocumentViewerModal';
+import { DocumentCard } from '../document/DocumentCard';
+import type { Asset, AssetCategory, AssetDocument } from '../../types/models';
 
 export interface AssetFormData {
   name: string;
@@ -53,6 +56,7 @@ export interface AssetFormData {
   claimInstructions?: string;
   notes?: string;
   photos: string[];
+  documents?: AssetDocument[];
 }
 
 interface AssetFormProps {
@@ -92,6 +96,7 @@ export function AssetForm({
   const [location, setLocation] = useState(initialValues?.location || '');
   const [notes, setNotes] = useState(initialValues?.notes || '');
   const [photos] = useState<string[]>(initialValues?.photos || []);
+  const [documents, setDocuments] = useState<AssetDocument[]>(initialValues?.documents || []);
 
   // Warranty form states (Stage 2)
   const [warrantyProvider, setWarrantyProvider] = useState(initialValues?.warrantyProvider || '');
@@ -133,6 +138,9 @@ export function AssetForm({
   const [warrantyStartModalVisible, setWarrantyStartModalVisible] = useState(false);
   const [warrantyEndModalVisible, setWarrantyEndModalVisible] = useState(false);
   const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [docPickerVisible, setDocPickerVisible] = useState(false);
+  const [docViewerVisible, setDocViewerVisible] = useState(false);
+  const [docViewerIndex, setDocViewerIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Derive suggested locations and whether IMEI should be shown
@@ -266,6 +274,7 @@ export function AssetForm({
         claimInstructions: claimInstructions.trim() || undefined,
         notes: notes.trim() || undefined,
         photos,
+        documents,
       });
     } finally {
       setLoading(false);
@@ -629,6 +638,54 @@ export function AssetForm({
           style={styles.field}
         />
 
+        {/* Section 5: Documents (Stage 5) */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary, marginTop: Spacing.xl }]}>
+            {t('documents.attachedDocuments')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setDocPickerVisible(true)}
+            style={[styles.addDocBtn, { backgroundColor: theme.custom.surfaceVariant }]}
+          >
+            <MaterialCommunityIcons name="plus" size={16} color={theme.colors.primary} />
+            <Text style={[styles.addDocBtnText, { color: theme.colors.primary }]}>
+              {t('documents.addDocument')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {documents.length === 0 ? (
+          <TouchableOpacity
+            style={[styles.emptyDocBox, { borderColor: theme.custom.border }]}
+            onPress={() => setDocPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="file-upload-outline"
+              size={28}
+              color={theme.custom.textSecondary}
+            />
+            <Text style={[styles.emptyDocText, { color: theme.custom.textSecondary }]}>
+              {t('documents.attachDocument')}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          documents.map((doc, idx) => (
+            <DocumentCard
+              key={doc.id || idx}
+              document={doc}
+              onPress={() => {
+                setDocViewerIndex(idx);
+                setDocViewerVisible(true);
+              }}
+              onDelete={() => {
+                setDocuments((prev) => prev.filter((_, i) => i !== idx));
+              }}
+              compact
+            />
+          ))
+        )}
+
         {/* Submit Button */}
         <View style={styles.submitContainer}>
           <AppButton
@@ -768,6 +825,27 @@ export function AssetForm({
           </View>
         </Modal>
       </Portal>
+
+      {/* Document Picker Modal (Stage 5) */}
+      <DocumentPickerModal
+        visible={docPickerVisible}
+        onDocumentsSelected={(newDocs) => {
+          setDocuments((prev) => [...prev, ...newDocs]);
+        }}
+        onClose={() => setDocPickerVisible(false)}
+      />
+
+      {/* Document Viewer Modal (Stage 5) */}
+      <DocumentViewerModal
+        visible={docViewerVisible}
+        documents={documents}
+        initialIndex={docViewerIndex}
+        onClose={() => setDocViewerVisible(false)}
+        onDelete={(doc) => {
+          setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+          setDocViewerVisible(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -928,5 +1006,36 @@ const styles = StyleSheet.create({
   templateCat: {
     ...Typography.bodySmall,
     fontSize: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  addDocBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    gap: 4,
+  },
+  addDocBtnText: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+  },
+  emptyDocBox: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  emptyDocText: {
+    ...Typography.bodyMedium,
   },
 });

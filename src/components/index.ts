@@ -18,3 +18,11 @@ export { OverdueCard } from './home/OverdueCard';
 export { ExpiringSoonCard } from './home/ExpiringSoonCard';
 export { UpcomingTaskCard } from './home/UpcomingTaskCard';
 export { AllClearBanner } from './home/AllClearBanner';
+
+// Documents
+export { DocumentCard } from './document/DocumentCard';
+export { DocumentViewerModal } from './document/DocumentViewerModal';
+export { DocumentPickerModal } from './document/DocumentPickerModal';
+export { CameraScannerModal } from './document/CameraScannerModal';
+export { EditDocumentModal } from './document/EditDocumentModal';
+export { CameraPermissionDialog } from './document/CameraPermissionDialog';

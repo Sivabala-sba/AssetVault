@@ -122,6 +122,29 @@ class InMemoryDatabase implements DatabaseClient {
       return { changes: 1 };
     }
 
+    // UPDATE asset_documents
+    if (cleanSql.startsWith('UPDATE ASSET_DOCUMENTS SET')) {
+      const id = params[params.length - 1] as string;
+      const existing = this.documents.get(id) || {};
+      const setMatch = sql.match(/SET\s+([\s\S]+?)\s+WHERE id\s*=\s*\?/i);
+      if (setMatch) {
+        const assignPairs = setMatch[1].split(',').map((p) => p.trim());
+        assignPairs.forEach((pair, idx) => {
+          const colName = pair.split('=')[0].trim();
+          existing[colName] = params[idx];
+        });
+        this.documents.set(id, { ...existing, id });
+      }
+      return { changes: 1 };
+    }
+
+    // DELETE FROM asset_documents WHERE id = ?
+    if (cleanSql.startsWith('DELETE FROM ASSET_DOCUMENTS WHERE ID')) {
+      const id = params[0] as string;
+      this.documents.delete(id);
+      return { changes: 1 };
+    }
+
     // INSERT INTO maintenance_tasks
     if (cleanSql.startsWith('INSERT INTO MAINTENANCE_TASKS')) {
       const colMatch = sql.match(/INSERT INTO maintenance_tasks\s*\(([^)]+)\)/i);
@@ -297,6 +320,13 @@ class InMemoryDatabase implements DatabaseClient {
     if (cleanSql.startsWith('SELECT * FROM REMINDERS WHERE ID')) {
       const id = params[0] as string;
       const row = this.reminders.get(id);
+      return (row ? { ...row } : null) as unknown as T;
+    }
+
+    // SELECT * FROM asset_documents WHERE id = ?
+    if (cleanSql.startsWith('SELECT * FROM ASSET_DOCUMENTS WHERE ID')) {
+      const id = params[0] as string;
+      const row = this.documents.get(id);
       return (row ? { ...row } : null) as unknown as T;
     }
 

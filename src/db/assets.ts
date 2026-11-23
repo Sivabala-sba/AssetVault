@@ -47,9 +47,12 @@ async function getDocumentsForAsset(assetId: string): Promise<AssetDocument[]> {
   );
   return rows.map((r) => ({
     id:            r.id as string,
+    assetId:       (r.assetId as string) || assetId,
+    title:         r.title as string | undefined,
     type:          r.type as AssetDocument['type'],
     fileUri:       r.fileUri as string,
     extractedText: r.extractedText as string | undefined,
+    mimeType:      r.mimeType as string | undefined,
     addedAt:       r.addedAt as string,
   }));
 }
@@ -176,8 +179,8 @@ export const assetRepository = {
     // Insert related records
     for (const doc of asset.documents) {
       await db.runAsync(
-        'INSERT INTO asset_documents (id, assetId, type, fileUri, extractedText, addedAt) VALUES (?,?,?,?,?,?)',
-        [doc.id, asset.id, doc.type, doc.fileUri, doc.extractedText ?? null, doc.addedAt]
+        'INSERT INTO asset_documents (id, assetId, title, type, fileUri, extractedText, mimeType, addedAt) VALUES (?,?,?,?,?,?,?,?)',
+        [doc.id, asset.id, doc.title ?? null, doc.type, doc.fileUri, doc.extractedText ?? null, doc.mimeType ?? null, doc.addedAt]
       );
     }
     for (const task of asset.maintenanceTasks) {

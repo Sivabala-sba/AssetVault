@@ -12,9 +12,12 @@ export type DocumentType =
 
 export interface AssetDocument {
   id: string;
+  assetId?: string;
+  title?: string;
   type: DocumentType;
   fileUri: string;
   extractedText?: string;
+  mimeType?: string;
   addedAt: string; // ISO date string
 }
 

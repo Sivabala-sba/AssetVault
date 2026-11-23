@@ -29,7 +29,13 @@ import {
   scheduleReminderNotifications,
 } from '../../src/services/notifications';
 import { Radius, Spacing, Typography } from '../../src/theme/tokens';
-import type { Asset, Reminder } from '../../src/types/models';
+import { documentRepository } from '../../src/db/documents';
+import { deleteFileFromPrivateStorage } from '../../src/services/documents';
+import { DocumentPickerModal } from '../../src/components/document/DocumentPickerModal';
+import { DocumentViewerModal } from '../../src/components/document/DocumentViewerModal';
+import { EditDocumentModal } from '../../src/components/document/EditDocumentModal';
+import { DocumentCard } from '../../src/components/document/DocumentCard';
+import type { Asset, Reminder, AssetDocument, DocumentType } from '../../src/types/models';
 
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +53,13 @@ export default function AssetDetailScreen() {
   const [snoozeModalVisible, setSnoozeModalVisible] = useState(false);
   const [snoozeTarget, setSnoozeTarget] = useState<Reminder | null>(null);
   const [permissionDialogVisible, setPermissionDialogVisible] = useState(false);
+
+  // Documents modal state (Stage 5)
+  const [docPickerVisible, setDocPickerVisible] = useState(false);
+  const [docViewerVisible, setDocViewerVisible] = useState(false);
+  const [docViewerIndex, setDocViewerIndex] = useState(0);
+  const [docEditVisible, setDocEditVisible] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<AssetDocument | null>(null);
 
   const fetchAsset = useCallback(async () => {
     if (!id) return;
@@ -272,6 +285,71 @@ export default function AssetDetailScreen() {
     }
     await rescheduleReminderNotifications(saved, asset.name);
     await fetchAsset();
+  };
+
+  // ── Documents Management (Stage 5) ────────────────────────────────────────
+  const handleAddDocuments = async (newDocs: AssetDocument[]) => {
+    if (!asset) return;
+    try {
+      for (const doc of newDocs) {
+        await documentRepository.insert({ ...doc, assetId: asset.id });
+      }
+      await fetchAsset();
+    } catch (e) {
+      console.error('Failed to add documents:', e);
+      Alert.alert(t('common.error'), t('errors.saveFailed'));
+    }
+  };
+
+  const handleOpenDocViewer = (index: number) => {
+    setDocViewerIndex(index);
+    setDocViewerVisible(true);
+  };
+
+  const handleOpenDocEdit = (doc: AssetDocument) => {
+    setEditingDocument(doc);
+    setDocEditVisible(true);
+  };
+
+  const handleSaveEditedDocument = async (
+    docId: string,
+    updates: { title?: string; type?: DocumentType }
+  ) => {
+    try {
+      await documentRepository.update(docId, updates);
+      await fetchAsset();
+    } catch (e) {
+      console.error('Failed to update document:', e);
+      Alert.alert(t('common.error'), t('errors.saveFailed'));
+    }
+  };
+
+  const handleDeleteDocument = (doc: AssetDocument) => {
+    const docName = doc.title || t(`documents.types.${doc.type}`);
+    Alert.alert(
+      t('documents.deleteConfirmTitle'),
+      t('documents.deleteConfirmMessage', { name: docName }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await documentRepository.delete(doc.id);
+              await deleteFileFromPrivateStorage(doc.fileUri);
+              if (docViewerVisible && (asset?.documents?.length ?? 0) <= 1) {
+                setDocViewerVisible(false);
+              }
+              await fetchAsset();
+            } catch (e) {
+              console.error('Failed to delete document:', e);
+              Alert.alert(t('common.error'), t('errors.deleteFailed'));
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -695,21 +773,45 @@ export default function AssetDetailScreen() {
           </Text>
         </Card>
 
-        {/* Section 4: Documents (Placeholder) */}
-        <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
-          {t('assetDetail.documentsSection')}
-        </Text>
-        <Card variant="outlined" style={styles.placeholderCard}>
-          <MaterialCommunityIcons
-            name="file-document-outline"
-            size={28}
-            color={theme.custom.textSecondary}
-            style={styles.placeholderIcon}
-          />
-          <Text style={[styles.placeholderText, { color: theme.custom.textSecondary }]}>
-            {t('assetDetail.documentsComingSoon')}
+        {/* Section 4: Documents (Stage 5) */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>
+            {t('documents.title')}
           </Text>
-        </Card>
+          <TouchableOpacity
+            onPress={() => setDocPickerVisible(true)}
+            style={[styles.addReminderHeaderBtn, { backgroundColor: theme.custom.surfaceVariant }]}
+          >
+            <MaterialCommunityIcons name="plus" size={16} color={theme.colors.primary} />
+            <Text style={[styles.addReminderHeaderText, { color: theme.colors.primary }]}>
+              {t('documents.addDocument')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {(asset.documents || []).length === 0 ? (
+          <Card variant="outlined" style={styles.placeholderCard}>
+            <MaterialCommunityIcons
+              name="file-document-outline"
+              size={28}
+              color={theme.custom.textSecondary}
+              style={styles.placeholderIcon}
+            />
+            <Text style={[styles.placeholderText, { color: theme.custom.textSecondary }]}>
+              {t('documents.emptySubtitle')}
+            </Text>
+          </Card>
+        ) : (
+          asset.documents.map((doc, idx) => (
+            <DocumentCard
+              key={doc.id}
+              document={doc}
+              onPress={() => handleOpenDocViewer(idx)}
+              onEdit={() => handleOpenDocEdit(doc)}
+              onDelete={() => handleDeleteDocument(doc)}
+            />
+          ))
+        )}
       </ScrollView>
 
       {/* Reminder Create/Edit Modal */}
@@ -747,6 +849,40 @@ export default function AssetDetailScreen() {
         }}
         onNotNow={() => {
           setPermissionDialogVisible(false);
+        }}
+      />
+
+      {/* Document Picker Modal (Stage 5) */}
+      <DocumentPickerModal
+        visible={docPickerVisible}
+        assetId={asset.id}
+        onDocumentsSelected={handleAddDocuments}
+        onClose={() => setDocPickerVisible(false)}
+      />
+
+      {/* Document Viewer Modal (Stage 5) */}
+      <DocumentViewerModal
+        visible={docViewerVisible}
+        documents={asset.documents || []}
+        initialIndex={docViewerIndex}
+        onClose={() => setDocViewerVisible(false)}
+        onEdit={(doc) => {
+          setDocViewerVisible(false);
+          handleOpenDocEdit(doc);
+        }}
+        onDelete={(doc) => {
+          handleDeleteDocument(doc);
+        }}
+      />
+
+      {/* Edit Document Modal (Stage 5) */}
+      <EditDocumentModal
+        visible={docEditVisible}
+        document={editingDocument}
+        onSave={handleSaveEditedDocument}
+        onClose={() => {
+          setDocEditVisible(false);
+          setEditingDocument(null);
         }}
       />
     </SafeAreaView>
