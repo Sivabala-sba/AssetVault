@@ -57,7 +57,8 @@ export function calculateWarrantyEndDate(
  */
 export function getWarrantyInfo(
   asset: Partial<Asset>,
-  expiringSoonDays: number = WARRANTY_EXPIRING_SOON_DAYS
+  expiringSoonDays: number = WARRANTY_EXPIRING_SOON_DAYS,
+  referenceDate: Date = new Date()
 ): WarrantyInfo {
   // If user entered duration but start date is missing/invalid, do NOT guess!
   if (
@@ -101,7 +102,7 @@ export function getWarrantyInfo(
     return { status: 'unknown' };
   }
 
-  const today = new Date();
+  const today = new Date(referenceDate);
   today.setHours(0, 0, 0, 0);
 
   // Normalize end date to midnight for day difference
@@ -160,13 +161,14 @@ export function getWarrantyRelativeText(info: WarrantyInfo): string {
  */
 export function getWarrantyStatusFromDate(
   warrantyEndDate?: string | null,
-  expiringSoonDays: number = WARRANTY_EXPIRING_SOON_DAYS
+  expiringSoonDays: number = WARRANTY_EXPIRING_SOON_DAYS,
+  referenceDate: Date = new Date()
 ): WarrantyStatus {
   if (!warrantyEndDate) return 'unknown';
   const endDate = parseISO(warrantyEndDate);
   if (!isValid(endDate)) return 'unknown';
 
-  const today = new Date();
+  const today = new Date(referenceDate);
   today.setHours(0, 0, 0, 0);
   const days = differenceInDays(endDate, today);
 
